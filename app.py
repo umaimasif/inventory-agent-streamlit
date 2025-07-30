@@ -1,173 +1,102 @@
 
 import streamlit as st
-import pandas as pd
-import os
 import json
-import uuid
-from datetime import datetime
+import csv
+import os
 import requests
 
-# Set your Groq API key here (or use st.secrets if deploying)
-GROQ_API_KEY = "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"
+# ========== CONFIG ==========
+GROQ_API_KEY = "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"  
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+HEADERS = {
+    "Authorization": f"Bearer {GROQ_API_KEY}",
+    "Content-Type": "application/json"
+}
 
-# File paths
-INVENTORY_FILE = "inventory.csv"
-INVOICE_FILE = "invoice.csv"
+# ========== MEMORY ==========
+if "inventory" not in st.session_state:
+    st.session_state.inventory = []
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# Initialize files
-if not os.path.exists(INVENTORY_FILE):
-    pd.DataFrame(columns=["Item", "Quantity", "Category", "Price"]).to_csv(INVENTORY_FILE, index=False)
+# ========== UTILITY FUNCTIONS ==========
+def add_item(item):
+    st.session_state.inventory.append(item)
 
-if not os.path.exists(INVOICE_FILE):
-    pd.DataFrame(columns=["Invoice ID", "Item", "Quantity", "Date"]).to_csv(INVOICE_FILE, index=False)
+def delete_item(name):
+    st.session_state.inventory = [i for i in st.session_state.inventory if i["name"] != name]
 
+def save_inventory():
+    with open("inventory.json", "w") as f:
+        json.dump(st.session_state.inventory, f)
+    with open("inventory.csv", "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=["name", "category", "brand", "quantity", "size", "price"])
+        writer.writeheader()
+        writer.writerows(st.session_state.inventory)
 
-# 💬 LLM response generator (Groq)
-def generate_response(prompt):
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
+def generate_response(user_input):
+    messages = [{"role": "system", "content": "You are a helpful fashion store assistant."}]
+    for chat in st.session_state.chat_history:
+        messages.append(chat)
+    messages.append({"role": "user", "content": user_input})
+
     payload = {
         "model": "llama3-8b-8192",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3
+        "messages": messages,
+        "temperature": 0.7
     }
+    response = requests.post(GROQ_URL, headers=HEADERS, json=payload)
+    reply = response.json()["choices"][0]["message"]["content"]
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+    st.session_state.chat_history.append({"role": "assistant", "content": reply})
+    return reply
 
-    try:
-        response = requests.post(url, headers=headers, json=payload)
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    except Exception as e:
-        return f"Error: {e}"
+# ========== SIDEBAR ==========
+st.sidebar.title("🧠 Inventory Agent")
 
+if st.sidebar.button("➕ Add Item"):
+    with st.form("add_form", clear_on_submit=True):
+        name = st.text_input("Item Name")
+        category = st.text_input("Category")
+        brand = st.text_input("Brand")
+        quantity = st.number_input("Quantity", min_value=1)
+        size = st.selectbox("Size", ["XS", "S", "M", "L", "XL"])
+        price = st.number_input("Price", min_value=0.0, format="%.2f")
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            add_item({"name": name, "category": category, "brand": brand, "quantity": quantity, "size": size, "price": price})
+            st.success(f"✅ Added {quantity} {name}(s) to inventory.")
 
-# 🧠 Process command
-def process_command(command):
-    command = command.lower()
+if st.sidebar.button("❌ Delete Item"):
+    name = st.text_input("Enter item name to delete")
+    if name:
+        delete_item(name)
+        st.sidebar.success(f"Deleted {name} from inventory.")
 
-    if "add" in command:
-        return handle_add(command)
-    elif "delete" in command:
-        return handle_delete(command)
-    elif "save" in command:
-        return handle_save()
-    elif "restock" in command:
-        return handle_restock(command)
-    elif "stop" in command:
-        return "Agent stopped."
-    else:
-        return generate_response(f"This is an inventory system. What should I do with: '{command}'?")
+if st.sidebar.button("💾 Save Inventory"):
+    save_inventory()
+    st.sidebar.success("📦 Inventory saved to inventory.json & inventory.csv")
 
+if st.sidebar.button("🛑 Stop Agent"):
+    st.stop()
 
-# 🟢 Add item
-def handle_add(command):
-    try:
-        parts = command.split("add")[1].strip().split()
-        quantity = int(parts[0])
-        item = " ".join(parts[1:])
-        df = pd.read_csv(INVENTORY_FILE)
+# ========== MAIN CHAT AREA ==========
+st.title("🛍️ Inventory Assistant Chat")
 
-        if item in df["Item"].values:
-            df.loc[df["Item"] == item, "Quantity"] += quantity
-        else:
-            df = pd.concat([df, pd.DataFrame([{
-                "Item": item,
-                "Quantity": quantity,
-                "Category": "General",
-                "Price": 0.0
-            }])], ignore_index=True)
+with st.chat_message("assistant"):
+    st.markdown("Hi! I’m your fashion assistant. Ask me anything about inventory or placing orders.")
 
-        df.to_csv(INVENTORY_FILE, index=False)
-        return f"✅ Added {quantity} {item}."
-    except Exception as e:
-        return f"❌ Error adding item: {e}"
+user_query = st.chat_input("Ask something like 'Do we have Zara medium shirts?' or 'Help with my order'")
+if user_query:
+    with st.chat_message("user"):
+        st.markdown(user_query)
+    response = generate_response(user_query)
+    with st.chat_message("assistant"):
+        st.markdown(response)
 
-
-# 🔴 Delete item
-def handle_delete(command):
-    try:
-        item = command.split("delete")[1].strip()
-        df = pd.read_csv(INVENTORY_FILE)
-
-        if item in df["Item"].values:
-            df = df[df["Item"] != item]
-            df.to_csv(INVENTORY_FILE, index=False)
-            return f"🗑️ Deleted {item}."
-        else:
-            return f"⚠️ {item} not found."
-    except Exception as e:
-        return f"❌ Error deleting item: {e}"
-
-
-# 💾 Save invoice
-def handle_save():
-    try:
-        df = pd.read_csv(INVENTORY_FILE)
-        invoice_id = str(uuid.uuid4())[:8]
-        date = datetime.now().strftime("%Y-%m-%d")
-
-        invoice_df = pd.DataFrame([{
-            "Invoice ID": invoice_id,
-            "Item": row["Item"],
-            "Quantity": row["Quantity"],
-            "Date": date
-        } for _, row in df.iterrows()])
-
-        existing = pd.read_csv(INVOICE_FILE)
-        combined = pd.concat([existing, invoice_df], ignore_index=True)
-        combined.to_csv(INVOICE_FILE, index=False)
-
-        return f"💰 Invoice `{invoice_id}` saved with {len(df)} items."
-    except Exception as e:
-        return f"❌ Error saving invoice: {e}"
-
-
-# ♻️ Restock items
-def handle_restock(command):
-    try:
-        parts = command.split("restock")[1].strip().split()
-        quantity = int(parts[0])
-        item = " ".join(parts[1:])
-        df = pd.read_csv(INVENTORY_FILE)
-
-        if item in df["Item"].values:
-            df.loc[df["Item"] == item, "Quantity"] += quantity
-            df.to_csv(INVENTORY_FILE, index=False)
-            return f"🔁 Restocked {quantity} {item}."
-        else:
-            return f"⚠️ {item} not found to restock."
-    except Exception as e:
-        return f"❌ Error restocking: {e}"
-
-
-# 📦 Streamlit UI
-st.set_page_config(page_title="📦 Inventory Agent", layout="wide")
-st.title("📦 Inventory Agent")
-st.markdown("Welcome! Your assistant is ready. Ask anything like:\n- `add 5 blue jeans`\n- `delete red shirt`\n- `restock 10 black jackets`\n- `save`\n- `stop`")
-
-# Sidebar options
-with st.sidebar:
-    st.header("👨‍💼 Agent Panel")
-    show_agent = st.checkbox("Show Agent")
-    show_inventory = st.checkbox("View Inventory CSV")
-    show_invoice = st.checkbox("View Invoice CSV")
-
-# Agent interaction
-if show_agent:
-    user_input = st.text_input("💬 How can I help you?", key="command_input")
-    if user_input:
-        result = process_command(user_input)
-        st.success(result)
-
-# CSV views
-if show_inventory:
-    st.subheader("📊 Inventory Data")
-    df = pd.read_csv(INVENTORY_FILE)
-    st.dataframe(df)
-
-if show_invoice:
-    st.subheader("🧾 Invoice Records")
-    df = pd.read_csv(INVOICE_FILE)
-    st.dataframe(df)
+# Optional: View current inventory
+st.subheader("📋 Current Inventory")
+if st.session_state.inventory:
+    st.table(st.session_state.inventory)
+else:
+    st.info("No items in inventory yet.")
