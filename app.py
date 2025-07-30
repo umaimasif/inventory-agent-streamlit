@@ -1,150 +1,151 @@
 import streamlit as st
 import json
-import pandas as pd
-from typing import List, Dict
+import csv
+import os
+from datetime import datetime
 
-# ====== Inventory Data ======
-inventory = []
-orders = []
-RESTOCK_THRESHOLD = 5
+# ---------- File Paths ----------
+JSON_FILE = "inventory.json"
+CSV_FILE = "inventory.csv"
+ORDER_FILE = "orders.json"
+INVOICE_FILE = "invoice.txt"
 
-# ====== Core Functions ======
-def add_item(name, color, category, quantity, price, brand=None, size=None):
-    item = {
-        "name": name,
-        "color": color,
-        "category": category,
-        "quantity": quantity,
-        "price": price,
-        "brand": brand,
-        "size": size,
-    }
-    inventory.append(item)
-    return f"✅ Added {quantity} {color} {name}(s) in {category} at price {price}"
+# ---------- Load or Init Inventory ----------
+def load_inventory():
+    if os.path.exists(JSON_FILE):
+        with open(JSON_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-def delete_item(name, color):
-    global inventory
-    filtered = [item for item in inventory if not (item['name'] == name and item['color'] == color)]
-    if len(filtered) == len(inventory):
-        return f"❌ No item named {color} {name} found"
-    inventory = filtered
-    return f"🗑️ Deleted items with name {color} {name}"
+def save_inventory(inventory):
+    with open(JSON_FILE, "w") as f:
+        json.dump(inventory, f, indent=2)
+    with open(CSV_FILE, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Name", "Color", "Category", "Quantity", "Price"])
+        for key, value in inventory.items():
+            writer.writerow([key, *value.values()])
 
-def order_item(name, color, quantity, category, price, brand, size):
-    order = {
-        "name": name.lower(), "color": color.lower(), "quantity": quantity,
-        "category": category.lower(), "price": price, "brand": brand.lower(), "size": size.lower()
-    }
-    inventory.append(order)
-    orders.append(order)
-    return f"🛍️ Ordered {quantity} {color} {name}(s) from brand {brand}, size {size}, category {category}, at price {price}"
+def load_orders():
+    if os.path.exists(ORDER_FILE):
+        with open(ORDER_FILE, "r") as f:
+            return json.load(f)
+    return []
 
-def restock_alert_tool():
-    alerts = [
-        f"⚠️ Low stock: {item['quantity']} {item['color']} {item['name']}(s) in {item['category']}. Consider restocking."
-        for item in inventory if item["quantity"] < RESTOCK_THRESHOLD
-    ]
-    return alerts or ["✅ All items are sufficiently stocked."]
+def save_orders(orders):
+    with open(ORDER_FILE, "w") as f:
+        json.dump(orders, f, indent=2)
 
-def generate_invoice():
-    invoice_lines = []
-    total_amount = 0
-    for order in orders:
-        line = f"- {order['quantity']} {order['size']} {order['name']}(s) of brand {order['brand']} at Rs.{order['price']} each → Rs.{order['price'] * order['quantity']}"
-        invoice_lines.append(line)
-        total_amount += order["price"] * order["quantity"]
-    invoice_lines.append(f"\n🧾 Total: Rs.{total_amount}")
-    return "\n".join(invoice_lines)
+def save_invoice(order):
+    with open(INVOICE_FILE, "w") as f:
+        f.write("\n--- INVOICE ---\n")
+        f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        total = 0
+        for item in order:
+            line = f"{item['quantity']} x {item['name']} ({item['color']}) - ${item['price']}\n"
+            f.write(line)
+            total += item['quantity'] * item['price']
+        f.write(f"Total: ${total}\n")
 
-def save_inventory():
-    with open("inventory.json", "w") as f:
-        json.dump(inventory, f, indent=4)
-    df = pd.DataFrame(inventory)
-    df.to_csv("inventory.csv", index=False)
-    return "💾 Inventory saved to inventory.json and inventory.csv"
-
-def stop_agent():
-    summary = {}
-    for item in inventory:
-        key = f"{item['color']} {item['name']}"
-        summary[key] = summary.get(key, 0) + item["quantity"]
-    summary_str = "\n".join([f"🧾 You added {v} {k}(s)" for k, v in summary.items()])
-    return f"🛑 Agent stopped.\n{summary_str}"
-
-# ====== Streamlit App ======
-st.set_page_config(page_title="Inventory Agent App 🧠📦")
+# ---------- UI ----------
 st.title("📦 Inventory Agent")
 st.subheader("Welcome to your inventory agent.")
 
-# --- Command Input ---
 command = st.text_input("Enter your command (e.g., 'add 5 red shirts'):")
 
-if st.button("Run Command") and command:
-    command = command.lower()
-    output = ""
+inventory = load_inventory()
+orders = load_orders()
 
-    try:
-        if command.startswith("add"):
-            st.subheader("Add Item")
-            name = st.text_input("Name")
-            color = st.text_input("Color")
-            category = st.text_input("Category")
-            quantity = st.number_input("Quantity", min_value=1)
-            price = st.number_input("Price", min_value=0.0)
-            brand = st.text_input("Brand")
-            size = st.text_input("Size")
-            if st.button("Add"):
-                output = add_item(name, color, category, int(quantity), float(price), brand, size)
+# ---------- Command Handler ----------
+if command.lower().startswith("add"):
+    st.markdown("### ➕ Add Item")
+    with st.form("add_form"):
+        name = st.text_input("Name")
+        color = st.text_input("Color")
+        category = st.text_input("Category")
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        price = st.number_input("Price", min_value=0.0, step=0.01)
+        submitted = st.form_submit_button("Add")
+        clear = st.form_submit_button("Clear Form")
 
-        elif command.startswith("delete"):
-            st.subheader("Delete Item")
-            name = st.text_input("Name to Delete")
-            color = st.text_input("Color to Delete")
-            if st.button("Delete"):
-                output = delete_item(name, color)
+        if submitted and name:
+            inventory[name] = {
+                "color": color,
+                "category": category,
+                "quantity": quantity,
+                "price": price
+            }
+            save_inventory(inventory)
+            st.success(f"{quantity} {name}(s) added.")
 
-        elif command.startswith("order"):
-            st.subheader("Order Item")
-            name = st.text_input("Order Name")
-            color = st.text_input("Order Color")
-            category = st.text_input("Order Category")
-            quantity = st.number_input("Order Quantity", min_value=1)
-            price = st.number_input("Order Price", min_value=0.0)
-            brand = st.text_input("Order Brand")
-            size = st.text_input("Order Size")
-            if st.button("Order"):
-                output = order_item(name, color, int(quantity), category, int(price), brand, size)
-
-        elif "restock" in command:
-            output = "\n".join(restock_alert_tool())
-
-        elif "save" in command:
-            output = save_inventory()
-
-        elif "stop" in command:
-            output = stop_agent()
-
-        else:
-            output = "❓ Unknown command"
-
-        st.success(output)
-
-    except Exception as e:
-        st.error(f"⚠️ Error: {str(e)}")
-
-# Show current inventory
-tab1, tab2 = st.tabs(["📋 Inventory", "🧾 Orders"])
-
-with tab1:
+elif command.lower().startswith("delete"):
+    st.markdown("### 🗑️ Delete Item")
     if inventory:
-        st.dataframe(pd.DataFrame(inventory))
+        with st.form("delete_form"):
+            item = st.selectbox("Select item to delete", list(inventory.keys()))
+            quantity = st.number_input("Quantity to delete", min_value=1, step=1)
+            delete_btn = st.form_submit_button("Delete")
+            if delete_btn:
+                if quantity >= inventory[item]["quantity"]:
+                    del inventory[item]
+                else:
+                    inventory[item]["quantity"] -= quantity
+                save_inventory(inventory)
+                st.success(f"Deleted {quantity} of {item}")
     else:
-        st.info("Inventory is empty.")
+        st.warning("Inventory is empty.")
 
-with tab2:
-    if orders:
-        st.dataframe(pd.DataFrame(orders))
-        st.markdown("---")
-        st.text(generate_invoice())
+elif command.lower().startswith("order"):
+    st.markdown("### 🛒 Take Order")
+    if inventory:
+        with st.form("order_form"):
+            item = st.selectbox("Select item", list(inventory.keys()))
+            quantity = st.number_input("Quantity", min_value=1, step=1)
+            order_btn = st.form_submit_button("Order")
+            if order_btn:
+                if quantity > inventory[item]["quantity"]:
+                    st.error("Not enough stock.")
+                else:
+                    inventory[item]["quantity"] -= quantity
+                    ordered = {
+                        "name": item,
+                        "color": inventory[item]["color"],
+                        "quantity": quantity,
+                        "price": inventory[item]["price"]
+                    }
+                    orders.append(ordered)
+                    save_inventory(inventory)
+                    save_orders(orders)
+                    save_invoice(orders)
+                    st.success(f"Ordered {quantity} of {item}")
     else:
-        st.info("No orders yet.")
+        st.warning("Inventory is empty.")
+
+elif command.lower().startswith("stop"):
+    st.markdown("### 🔚 Inventory Summary")
+    if inventory:
+        for item, details in inventory.items():
+            st.write(f"{item}: {details['quantity']} left")
+    else:
+        st.write("Inventory is empty.")
+    if orders:
+        st.markdown("### 🧾 Final Invoice")
+        with open(INVOICE_FILE, "r") as f:
+            st.text(f.read())
+        orders.clear()
+        save_orders(orders)
+
+# ---------- Sidebar Inventory Viewer ----------
+st.sidebar.header("📋 Inventory")
+if inventory:
+    for name, details in inventory.items():
+        st.sidebar.write(f"{name} | {details['quantity']} pcs | ${details['price']}")
+else:
+    st.sidebar.write("Inventory is empty.")
+
+st.sidebar.header("🧾 Orders")
+if orders:
+    for order in orders:
+        st.sidebar.write(f"{order['quantity']} x {order['name']} (${order['price']})")
+else:
+    st.sidebar.write("No orders yet.")
