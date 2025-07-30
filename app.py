@@ -1,151 +1,145 @@
+
 import streamlit as st
 import json
 import csv
 import os
 from datetime import datetime
+import uuid
 
-# ---------- File Paths ----------
-JSON_FILE = "inventory.json"
-CSV_FILE = "inventory.csv"
-ORDER_FILE = "orders.json"
-INVOICE_FILE = "invoice.txt"
+# File paths
+INVENTORY_JSON = "inventory.json"
+INVENTORY_CSV = "inventory.csv"
+INVOICE_DIR = "invoices"
+os.makedirs(INVOICE_DIR, exist_ok=True)
 
-# ---------- Load or Init Inventory ----------
-def load_inventory():
-    if os.path.exists(JSON_FILE):
-        with open(JSON_FILE, "r") as f:
-            return json.load(f)
-    return {}
+# Load inventory
+if os.path.exists(INVENTORY_JSON):
+    with open(INVENTORY_JSON, "r") as f:
+        inventory = json.load(f)
+else:
+    inventory = {}
 
-def save_inventory(inventory):
-    with open(JSON_FILE, "w") as f:
+# Save inventory to JSON and CSV
+def save_inventory():
+    with open(INVENTORY_JSON, "w") as f:
         json.dump(inventory, f, indent=2)
-    with open(CSV_FILE, "w", newline="") as f:
+    with open(INVENTORY_CSV, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["Name", "Color", "Category", "Quantity", "Price"])
-        for key, value in inventory.items():
-            writer.writerow([key, *value.values()])
+        for item, details in inventory.items():
+            writer.writerow([
+                item,
+                details.get("color", ""),
+                details.get("category", ""),
+                details.get("quantity", 0),
+                details.get("price", "")
+            ])
 
-def load_orders():
-    if os.path.exists(ORDER_FILE):
-        with open(ORDER_FILE, "r") as f:
-            return json.load(f)
-    return []
+# Save invoice to file
+def save_invoice(order_data):
+    invoice_id = str(uuid.uuid4())[:8]
+    filename = f"invoice_{invoice_id}.json"
+    invoice_path = os.path.join(INVOICE_DIR, filename)
+    invoice_data = {
+        "invoice_id": invoice_id,
+        "timestamp": datetime.now().isoformat(),
+        "order": order_data
+    }
+    with open(invoice_path, "w") as f:
+        json.dump(invoice_data, f, indent=2)
+    return invoice_data
 
-def save_orders(orders):
-    with open(ORDER_FILE, "w") as f:
-        json.dump(orders, f, indent=2)
-
-def save_invoice(order):
-    with open(INVOICE_FILE, "w") as f:
-        f.write("\n--- INVOICE ---\n")
-        f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        total = 0
-        for item in order:
-            line = f"{item['quantity']} x {item['name']} ({item['color']}) - ${item['price']}\n"
-            f.write(line)
-            total += item['quantity'] * item['price']
-        f.write(f"Total: ${total}\n")
-
-# ---------- UI ----------
+# Streamlit UI
 st.title("📦 Inventory Agent")
-st.subheader("Welcome to your inventory agent.")
+st.write("Welcome to your inventory agent.")
 
-command = st.text_input("Enter your command (e.g., 'add 5 red shirts'):")
+command = st.text_input("Enter your command (e.g., 'add 5 red shirts'):").lower().strip()
 
-inventory = load_inventory()
-orders = load_orders()
-
-# ---------- Command Handler ----------
-if command.lower().startswith("add"):
-    st.markdown("### ➕ Add Item")
+# Forms and behavior
+if command.startswith("add"):
     with st.form("add_form"):
         name = st.text_input("Name")
         color = st.text_input("Color")
         category = st.text_input("Category")
         quantity = st.number_input("Quantity", min_value=1, step=1)
-        price = st.number_input("Price", min_value=0.0, step=0.01)
-        submitted = st.form_submit_button("Add")
+        price = st.text_input("Price")
         clear = st.form_submit_button("Clear Form")
+        submitted = st.form_submit_button("Add Item")
 
-        if submitted and name:
-            inventory[name] = {
-                "color": color,
-                "category": category,
-                "quantity": quantity,
-                "price": price
-            }
-            save_inventory(inventory)
-            st.success(f"{quantity} {name}(s) added.")
+        if clear:
+            st.experimental_rerun()
+        if submitted:
+            if name:
+                if name not in inventory:
+                    inventory[name] = {}
+                inventory[name].update({
+                    "color": color,
+                    "category": category,
+                    "quantity": inventory[name].get("quantity", 0) + quantity,
+                    "price": price
+                })
+                save_inventory()
+                st.success(f"✅ Added {quantity} {name}(s) to inventory.")
 
-elif command.lower().startswith("delete"):
-    st.markdown("### 🗑️ Delete Item")
-    if inventory:
-        with st.form("delete_form"):
-            item = st.selectbox("Select item to delete", list(inventory.keys()))
-            quantity = st.number_input("Quantity to delete", min_value=1, step=1)
-            delete_btn = st.form_submit_button("Delete")
-            if delete_btn:
-                if quantity >= inventory[item]["quantity"]:
-                    del inventory[item]
-                else:
-                    inventory[item]["quantity"] -= quantity
-                save_inventory(inventory)
-                st.success(f"Deleted {quantity} of {item}")
-    else:
-        st.warning("Inventory is empty.")
+elif command.startswith("delete"):
+    with st.form("delete_form"):
+        item_name = st.selectbox("Select item to delete", list(inventory.keys()))
+        del_qty = st.number_input("Quantity to delete", min_value=1, step=1)
+        submitted = st.form_submit_button("Delete Item")
+        if submitted:
+            if item_name in inventory:
+                current_qty = inventory[item_name].get("quantity", 0)
+                inventory[item_name]["quantity"] = max(0, current_qty - del_qty)
+                save_inventory()
+                st.success(f"❌ Deleted {del_qty} from {item_name}.")
 
-elif command.lower().startswith("order"):
-    st.markdown("### 🛒 Take Order")
-    if inventory:
-        with st.form("order_form"):
-            item = st.selectbox("Select item", list(inventory.keys()))
-            quantity = st.number_input("Quantity", min_value=1, step=1)
-            order_btn = st.form_submit_button("Order")
-            if order_btn:
-                if quantity > inventory[item]["quantity"]:
-                    st.error("Not enough stock.")
-                else:
-                    inventory[item]["quantity"] -= quantity
-                    ordered = {
-                        "name": item,
-                        "color": inventory[item]["color"],
-                        "quantity": quantity,
-                        "price": inventory[item]["price"]
-                    }
-                    orders.append(ordered)
-                    save_inventory(inventory)
-                    save_orders(orders)
-                    save_invoice(orders)
-                    st.success(f"Ordered {quantity} of {item}")
-    else:
-        st.warning("Inventory is empty.")
+elif command.startswith("restock"):
+    with st.form("restock_form"):
+        item_name = st.selectbox("Select item to restock", list(inventory.keys()))
+        restock_qty = st.number_input("Quantity to restock", min_value=1, step=1)
+        submitted = st.form_submit_button("Restock Item")
+        if submitted:
+            inventory[item_name]["quantity"] += restock_qty
+            save_inventory()
+            st.success(f"🔄 Restocked {restock_qty} of {item_name}.")
 
-elif command.lower().startswith("stop"):
-    st.markdown("### 🔚 Inventory Summary")
-    if inventory:
-        for item, details in inventory.items():
-            st.write(f"{item}: {details['quantity']} left")
-    else:
-        st.write("Inventory is empty.")
-    if orders:
-        st.markdown("### 🧾 Final Invoice")
-        with open(INVOICE_FILE, "r") as f:
-            st.text(f.read())
-        orders.clear()
-        save_orders(orders)
+elif command.startswith("order"):
+    with st.form("order_form"):
+        item = st.selectbox("Item", list(inventory.keys()))
+        brand = st.text_input("Brand")
+        size = st.text_input("Size")
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        submitted = st.form_submit_button("Place Order")
+        if submitted:
+            if inventory[item]["quantity"] >= quantity:
+                inventory[item]["quantity"] -= quantity
+                save_inventory()
+                invoice = save_invoice({
+                    "item": item,
+                    "brand": brand,
+                    "size": size,
+                    "quantity": quantity,
+                    "price": inventory[item].get("price", "N/A")
+                })
+                st.success("🧾 Order placed and invoice generated!")
+                st.json(invoice)
+            else:
+                st.error("❗ Not enough inventory to fulfill order.")
 
-# ---------- Sidebar Inventory Viewer ----------
-st.sidebar.header("📋 Inventory")
-if inventory:
-    for name, details in inventory.items():
-        st.sidebar.write(f"{name} | {details['quantity']} pcs | ${details['price']}")
+elif command.startswith("stop"):
+    st.header("📋 Inventory Summary")
+    for item, details in inventory.items():
+        st.write(f"{item.title()}: {details['quantity']} (Color: {details.get('color')}, Category: {details.get('category')}, Price: {details.get('price')})")
+    st.success("✅ Session ended. Inventory saved.")
+
+elif command:
+    st.warning("🤖 Sorry, I didn’t understand that command. Try 'add', 'delete', 'restock', 'order', or 'stop'.")
+
+# Inventory display
+st.divider()
+st.subheader("📋 Inventory")
+if not inventory:
+    st.write("Inventory is empty.")
 else:
-    st.sidebar.write("Inventory is empty.")
-
-st.sidebar.header("🧾 Orders")
-if orders:
-    for order in orders:
-        st.sidebar.write(f"{order['quantity']} x {order['name']} (${order['price']})")
-else:
-    st.sidebar.write("No orders yet.")
+    for item, details in inventory.items():
+        st.write(f"- {item.title()} ({details['quantity']} units, Color: {details.get('color')}, Category: {details.get('category')}, Price: {details.get('price')})")
