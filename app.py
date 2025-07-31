@@ -4,7 +4,7 @@ import requests
 import json
 import pandas as pd
 import uuid
-
+import litellm
 # --- Constants and Setup ---
 import os
 
@@ -30,17 +30,22 @@ if "chat_history" not in st.session_state:
 
 # --- Chatbot Function ---
 def ask_assistant(prompt):
-    st.session_state.chat_history.append({"role": "user", "content": prompt})
-    payload = {
-        "model": "llama3-8b-8192",
-        "messages": st.session_state.chat_history,
-        "temperature": 0.7
-    }
-    response = requests.post(GROQ_URL, headers=HEADERS, json=payload)
-    result = response.json()
-    reply = result["choices"][0]["message"]["content"]
-    st.session_state.chat_history.append({"role": "assistant", "content": reply})
-    return reply
+    try:
+        result = litellm.completion(
+            model="groq/llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": "You are a helpful inventory assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        if "choices" in result and result["choices"]:
+            return result["choices"][0]["message"]["content"]
+        else:
+            return "❌ Assistant returned an unexpected response."
+    
+    except Exception as e:
+        return f"⚠️ Error in assistant: {str(e)}"
 
 # --- Inventory Functions ---
 
