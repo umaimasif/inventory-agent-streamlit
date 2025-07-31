@@ -6,6 +6,13 @@ import pandas as pd
 import uuid
 
 # --- Constants and Setup ---
+import os
+
+# Load the key from Streamlit secrets
+os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+if not os.getenv("GROQ_API_KEY"):
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+
 GROQ_API_KEY ="GROQ_API_KEY"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 HEADERS = {
