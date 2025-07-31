@@ -5,6 +5,83 @@ import json
 import pandas as pd
 import uuid
 import litellm
+
+USER_FILE = "user_data.json"
+
+# Load or initialize user data
+if not os.path.exists(USER_FILE):
+    with open(USER_FILE, "w") as f:
+        json.dump({}, f)
+
+with open(USER_FILE, "r") as f:
+    users = json.load(f)
+
+# Helper to save users
+def save_users():
+    with open(USER_FILE, "w") as f:
+        json.dump(users, f)
+
+# Session state initialization
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+
+# Login or Signup Page
+st.title("🧠 Inventory Agent App")
+
+menu = st.sidebar.selectbox("Choose an option", ["Login", "Create Account"])
+
+if menu == "Create Account":
+    st.subheader("Create a New Account")
+
+    name = st.text_input("Name")
+    username = st.text_input("Username")
+    email = st.text_input("Email")
+    phone = st.text_input("Phone")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Create Account"):
+        if username in users:
+            st.error("Username already exists. Try another.")
+        elif not (name and username and email and phone and password):
+            st.warning("Please fill all fields.")
+        else:
+            users[username] = {
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "password": password
+            }
+            save_users()
+            st.success("Account created successfully! Now you can login.")
+
+elif menu == "Login":
+    st.subheader("Login")
+
+    login_user = st.text_input("Username")
+    login_pass = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if login_user in users and users[login_user]["password"] == login_pass:
+            st.success(f"Welcome back, {users[login_user]['name']}! 🎉")
+            st.session_state.logged_in = True
+            st.session_state.username = login_user
+        else:
+            st.error("Invalid username or password")
+
+# After Login
+if st.session_state.logged_in:
+    st.sidebar.success(f"Logged in as {users[st.session_state.username]['name']}")
+    option = st.radio("Choose a page", ["Agent", "Inventory"])
+
+    if option == "Agent":
+        with st.expander("🤖 Talk to the Agent"):
+            st.write("This is where the agent chat will go.")
+
+    elif option == "Inventory":
+        with st.expander("📦 Inventory Manager"):
+            st.write("This is where the inventory tools go.")
 # --- Constants and Setup ---
 import os
 
