@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import uuid
 import litellm
+import os
 
 USER_FILE = "user_data.json"
 
@@ -83,7 +84,6 @@ if st.session_state.logged_in:
         with st.expander("📦 Inventory Manager"):
             st.write("This is where the inventory tools go.")
 # --- Constants and Setup ---
-import os
 
 # Load the key from Streamlit secrets
 os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
