@@ -105,6 +105,7 @@ tabs = st.tabs(["Add", "View", "Delete", "Order", "Restock", "Save", "Stop"])
 # --- Tab 1: Add ---
 with tabs[0]:
     st.header("Add Item")
+
     name = st.text_input("Item Name")
     category = st.text_input("Category")
     size = st.selectbox("Size", ["XS", "S", "M", "L", "XL", "XXL"])
@@ -112,23 +113,24 @@ with tabs[0]:
     color = st.text_input("Color")
     price = st.number_input("Price", min_value=0.0, format="%.2f")
     quantity = st.number_input("Quantity", min_value=1, step=1)
+
     if st.button("Submit Item"):
-      new_item = {
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "category": category,
-        "size": size,
-        "brand": brand,
-        "color": color,
-        "price": price,
-        "quantity": quantity
-    }
+        new_item = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "category": category,
+            "size": size,
+            "brand": brand,
+            "color": color,
+            "price": price,
+            "quantity": quantity
+        }
 
-    if "inventory" not in st.session_state:
-        st.session_state.inventory = []
+        if "inventory" not in st.session_state:
+            st.session_state.inventory = []
 
-    st.session_state.inventory.append(new_item)
-    st.success(f"✅ '{name}' added to inventory!")
+        st.session_state.inventory.append(new_item)
+        st.success(f"✅ '{name}' added to inventory!")
 
 
 # --- Tab 2: View ---
