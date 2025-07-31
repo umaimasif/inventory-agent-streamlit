@@ -36,15 +36,32 @@ def ask_assistant(prompt):
     return reply
 
 # --- Inventory Functions ---
-def add_item(name, category, size, price, quantity):
-    st.session_state.inventory.append({
-        "id": str(uuid.uuid4()),
-        "name": name,
-        "category": category,
-        "size": size,
-        "price": price,
-        "quantity": quantity
-    })
+with st.expander("➕ Add Item to Inventory", expanded=True):
+    item_name = st.text_input("Item Name")
+    category = st.text_input("Category")
+    quantity = st.number_input("Quantity", min_value=1, step=1)
+    price = st.number_input("Price", min_value=0.0, format="%.2f")
+    size = st.selectbox("Size", ["XS", "S", "M", "L", "XL", "XXL"])
+    brand = st.text_input("Brand Name") 
+    color = st.text_input("Color")       
+
+    if st.button("✅ Submit Item"):
+        new_item = {
+            "name": item_name,
+            "category": category,
+            "quantity": quantity,
+            "price": price,
+            "size": size,
+            "brand": brand,   
+            "color": color   
+        }
+
+        if "inventory" not in st.session_state:
+            st.session_state.inventory = []
+
+        st.session_state.inventory.append(new_item)
+        st.success(f"✅ '{item_name}' added to inventory!")
+
 
 def delete_item(item_id):
     st.session_state.inventory = [item for item in st.session_state.inventory if item["id"] != item_id]
