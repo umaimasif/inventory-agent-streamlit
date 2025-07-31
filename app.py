@@ -20,12 +20,14 @@ def save_inventory_and_download(inventory):
     df = pd.DataFrame(inventory)
     csv_buffer = io.StringIO()
     df.to_csv(csv_buffer, index=False)
+    csv_data = csv_buffer.getvalue()  # ✅ ADD THIS LINE
     st.download_button(
         label="📥 Download Inventory CSV",
         data=csv_data,
         file_name="inventory.csv",
         mime="text/csv"
     )
+
 
 def restock_item(item_id, quantity):
     for item in st.session_state.inventory:
@@ -206,10 +208,30 @@ if st.session_state.logged_in:
                 st.success("Session cleared.")
 
     elif page == "Agent":
-        st.title("💬 Inventory Agent Assistant")
-        st.header("💬 Assistant")
-        prompt = st.text_input("Ask something...")
-        if st.button("Send"):
-            if prompt:
-                reply = ask_assistant(prompt)
-                st.markdown(f"**Assistant:** {reply}")
+       st.title("Inventory Agent Assistant 💬")
+       st.sidebar.header("💬 Assistant")
+
+    # Store chat history in session state
+       if "chat_history" not in st.session_state:
+           st.session_state.chat_history = []
+
+       prompt = st.sidebar.text_input("Ask something...")
+
+       if st.sidebar.button("Send"):
+           if prompt.strip():
+              try:
+                 reply = ask_assistant(prompt)
+                 st.session_state.chat_history.append(("user", prompt))
+                 st.session_state.chat_history.append(("assistant", reply))
+              except Exception as e:
+                 st.sidebar.error(f"❌ Error: {e}")
+           else:
+              st.sidebar.warning("Please enter a prompt.")
+
+    # Display chat history
+       st.subheader("Chat History")
+       for role, message in st.session_state.chat_history:
+           if role == "user":
+               st.markdown(f"👤 **You:** {message}")
+           else:
+              st.markdown(f"🤖 **Assistant:** {message}")
