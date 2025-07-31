@@ -128,110 +128,105 @@ elif menu == "Login":
             st.error("Invalid credentials.")
 
 # ---------- MAIN APP AFTER LOGIN ----------
-if st.session_state.logged_in:
-    page = st.sidebar.selectbox("Choose a page:", ["Inventory", "Agent"])
+page = st.sidebar.selectbox("Choose a page:", ["Inventory", "Agent"])
 
-    if page == "Inventory":
-        st.title("Inventory Management System")
-        tabs = st.tabs(["Add", "View", "Delete", "Order", "Restock", "Save", "Stop"])
+if page == "Inventory":
+    st.title("📦 Inventory Management System")
 
-        # --- Add ---
-        with tabs[0]:
-            st.header("Add Item")
-            name = st.text_input("Item Name")
-            category = st.text_input("Category")
-            size = st.selectbox("Size", ["XS", "S", "M", "L", "XL", "XXL"])
-            brand = st.text_input("Brand Name")
-            color = st.text_input("Color")
-            price = st.number_input("Price", min_value=0.0, format="%.2f")
-            quantity = st.number_input("Quantity", min_value=1, step=1)
-            if st.button("Submit Item"):
-                item = {
-                    "id": str(uuid.uuid4()),
-                    "name": name,
-                    "category": category,
-                    "size": size,
-                    "brand": brand,
-                    "color": color,
-                    "price": price,
-                    "quantity": quantity
-                }
-                st.session_state.inventory.append(item)
-                st.success(f"Added {name} to inventory.")
+    # Sample inventory and order lists
+    if "inventory" not in st.session_state:
+        st.session_state.inventory = []
+    if "orders" not in st.session_state:
+        st.session_state.orders = []
 
-        # --- View ---
-        with tabs[1]:
-            st.header("Current Inventory")
-            if st.session_state.inventory:
-                st.dataframe(pd.DataFrame(st.session_state.inventory))
+    tabs = st.tabs(["Add", "View", "Delete", "Order", "Restock", "Save", "Stop"])
+
+    with tabs[0]:
+        st.header("Add Item")
+        item = st.text_input("Item name")
+        quantity = st.number_input("Quantity", min_value=1, step=1)
+        if st.button("Add Item"):
+            st.session_state.inventory.append({"item": item, "quantity": quantity})
+            st.success(f"Added {quantity} x {item}")
+
+    with tabs[1]:
+        st.header("View Inventory")
+        if st.session_state.inventory:
+            for i, entry in enumerate(st.session_state.inventory):
+                st.write(f"{i+1}. {entry['item']} - {entry['quantity']}")
+        else:
+            st.info("Inventory is empty.")
+
+    with tabs[2]:
+        st.header("Delete Item")
+        delete_index = st.number_input("Enter index to delete", min_value=1, step=1)
+        if st.button("Delete"):
+            try:
+                removed = st.session_state.inventory.pop(delete_index - 1)
+                st.success(f"Removed {removed['item']}")
+            except IndexError:
+                st.error("Invalid index.")
+
+    with tabs[3]:
+        st.header("Order Item")
+        order_item = st.text_input("Order item name")
+        order_qty = st.number_input("Order quantity", min_value=1, step=1)
+        if st.button("Order"):
+            st.session_state.orders.append({"item": order_item, "quantity": order_qty})
+            st.success(f"Ordered {order_qty} x {order_item}")
+
+    with tabs[4]:
+        st.header("Restock")
+        restock_item = st.text_input("Restock item name")
+        restock_qty = st.number_input("Restock quantity", min_value=1, step=1)
+        if st.button("Restock"):
+            for entry in st.session_state.inventory:
+                if entry["item"] == restock_item:
+                    entry["quantity"] += restock_qty
+                    st.success(f"Restocked {restock_qty} x {restock_item}")
+                    break
             else:
-                st.info("Inventory is empty.")
+                st.warning("Item not found in inventory.")
 
-        # --- Delete ---
-        with tabs[2]:
-            st.header("Delete Item")
-            for item in st.session_state.inventory:
-                if st.button(f"Delete {item['name']}"):
-                    delete_item(item["id"])
-                    st.success(f"Deleted {item['name']}")
+    with tabs[5]:
+        st.header("Save Inventory")
+        if st.button("Save"):
+            # Replace with actual save logic
+            st.success("Inventory saved.")
 
-        # --- Order ---
-        with tabs[3]:
-            st.header("Place Order")
-            ids = [item["id"] for item in st.session_state.inventory if item["quantity"] > 0]
-            labels = [f"{item['name']} ({item['quantity']} left)" for item in st.session_state.inventory if item["quantity"] > 0]
-            selected_ids = st.multiselect("Select items to order", ids, format_func=lambda x: dict(zip(ids, labels))[x])
-            if st.button("Place Order"):
-                place_order(selected_ids)
+    with tabs[6]:
+        st.header("Stop Agent")
+        if st.button("Clear Session"):
+            st.session_state.inventory = []
+            st.session_state.orders = []
+            st.success("Session cleared.")
 
-        # --- Restock ---
-        with tabs[4]:
-            st.header("Restock Items")
-            for item in st.session_state.inventory:
-                qty = st.number_input(f"Restock for {item['name']}", min_value=0, key=item['id'])
-                if st.button(f"Restock {item['name']}"):
-                    restock_item(item["id"], qty)
-                    st.success(f"Restocked {item['name']} by {qty}")
-
-        # --- Save ---
-        with tabs[5]:
-            st.header("Save Inventory")
-            if st.button("Save Inventory"):
-                save_inventory_and_download(st.session_state.inventory)
-
-        # --- Stop ---
-        with tabs[6]:
-            st.header("Stop Agent")
-            if st.button("Clear Session"):
-                st.session_state.inventory = []
-                st.session_state.orders = []
-                st.success("Session cleared.")
-
-    elif page == "Agent":
-       st.title("Inventory Agent Assistant 💬")
-       st.sidebar.header("💬 Assistant")
+elif page == "Agent":
+    st.title("Inventory Agent Assistant 💬")
+    st.sidebar.header("💬 Assistant")
 
     # Store chat history in session state
-       if "chat_history" not in st.session_state:
-           st.session_state.chat_history = []
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-       prompt = st.sidebar.text_input("Ask something...")
+    prompt = st.sidebar.text_input("Ask something...")
 
-       if st.sidebar.button("Send"):
-           if prompt.strip():
-              try:
-                 reply = ask_assistant(prompt)
-                 st.session_state.chat_history.append(("user", prompt))
-                 st.session_state.chat_history.append(("assistant", reply))
-              except Exception as e:
-                 st.sidebar.error(f"❌ Error: {e}")
-           else:
-              st.sidebar.warning("Please enter a prompt.")
+    if st.sidebar.button("Send"):
+        if prompt.strip():
+            try:
+                # Replace this with your real assistant call
+                reply = ask_assistant(prompt)
+                st.session_state.chat_history.append(("user", prompt))
+                st.session_state.chat_history.append(("assistant", reply))
+            except Exception as e:
+                st.sidebar.error(f"❌ Error: {e}")
+        else:
+            st.sidebar.warning("Please enter a prompt.")
 
     # Display chat history
-       st.subheader("Chat History")
-       for role, message in st.session_state.chat_history:
-           if role == "user":
-               st.markdown(f"👤 **You:** {message}")
-           else:
-              st.markdown(f"🤖 **Assistant:** {message}")
+    st.subheader("Chat History")
+    for role, message in st.session_state.chat_history:
+        if role == "user":
+            st.markdown(f"👤 **You:** {message}")
+        else:
+            st.markdown(f"🤖 **Assistant:** {message}")
