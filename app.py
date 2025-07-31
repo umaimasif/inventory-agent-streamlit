@@ -54,6 +54,28 @@ def save_inventory():
     df.to_csv("inventory.csv", index=False)
     df.to_json("inventory.json", orient="records", indent=2)
     st.success("Inventory saved as CSV and JSON.")
+import pandas as pd
+import os
+
+# Save CSV and show download button
+def save_inventory_and_download(inventory):
+    if not inventory:
+        st.warning("No items to save.")
+        return
+
+    df = pd.DataFrame(inventory)
+    csv_file = "inventory.csv"
+    df.to_csv(csv_file, index=False)
+    st.success(f"Items saved to {csv_file}")
+
+    # Read back the CSV for download button
+    with open(csv_file, "rb") as f:
+        st.download_button(
+            label="📥 Download Inventory CSV",
+            data=f,
+            file_name=csv_file,
+            mime="text/csv"
+        )
 
 def restock_item(item_id, quantity):
     for item in st.session_state.inventory:
@@ -133,9 +155,9 @@ with tabs[4]:
 
 # --- Tab 6: Save ---
 with tabs[5]:
-    st.header("Save Inventory")
-    if st.button("Save to CSV & JSON"):
-        save_inventory()
+    if st.button("Save Inventory"):
+    save_inventory_and_download(st.session_state.inventory)
+
 
 # --- Tab 7: Stop ---
 with tabs[6]:
