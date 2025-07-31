@@ -141,21 +141,38 @@ if page == "Inventory":
 
     tabs = st.tabs(["Add", "View", "Delete", "Order", "Restock", "Save", "Stop"])
 
+    # ---- ADD TAB ----
     with tabs[0]:
-        st.header("Add Item")
-        item = st.text_input("Item name")
-        quantity = st.number_input("Quantity", min_value=1, step=1)
-        if st.button("Add Item"):
-            st.session_state.inventory.append({"item": item, "quantity": quantity})
-            st.success(f"Added {quantity} x {item}")
+       st.header("➕ Add Item")
+    
+       name = st.text_input("Item Name")
+       quantity = st.number_input("Quantity", min_value=1, step=1)
+       category = st.text_input("Category")
+       price = st.number_input("Price", min_value=0.0, step=0.1)
+       size = st.selectbox("Size", ["Small", "Medium", "Large", "XL", "XXL"])
+       brand = st.text_input("Brand Name")
+       color = st.text_input("Color")
+    
+       if st.button("Add Item"):
+           item = {
+            "name": name,
+            "quantity": quantity,
+            "category": category,
+            "price": price,
+            "size": size,
+            "brand": brand,
+            "color": color
+        }
+           st.session_state.inventory.append(item)
+           st.success(f"✅ Added {quantity} of {name} ({size}, {color}, {brand}) to inventory.")
 
     with tabs[1]:
-        st.header("View Inventory")
-        if st.session_state.inventory:
-            for i, entry in enumerate(st.session_state.inventory):
-                st.write(f"{i+1}. {entry['item']} - {entry['quantity']}")
-        else:
-            st.info("Inventory is empty.")
+         st.header("📄 View Inventory")
+         if st.session_state.inventory:
+            df = pd.DataFrame(st.session_state.inventory)
+            st.dataframe(df)
+         else:
+             st.info("Inventory is empty.")
 
     with tabs[2]:
         st.header("Delete Item")
@@ -202,29 +219,28 @@ if page == "Inventory":
             st.success("Session cleared.")
 
 elif page == "Agent":
-    st.title("Inventory Agent Assistant 💬")
-    st.sidebar.header("💬 Assistant")
+    st.title("🧠 Inventory Agent Assistant")
 
-    # Store chat history in session state
+    # Store chat history
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
-    prompt = st.sidebar.text_input("Ask something...")
+    st.subheader("Ask the Assistant")
+    prompt = st.text_input("Type your question here...")
 
-    if st.sidebar.button("Send"):
+    if st.button("Send"):
         if prompt.strip():
             try:
-                # Replace this with your real assistant call
                 reply = ask_assistant(prompt)
                 st.session_state.chat_history.append(("user", prompt))
                 st.session_state.chat_history.append(("assistant", reply))
             except Exception as e:
-                st.sidebar.error(f"❌ Error: {e}")
+                st.error(f"❌ Error: {e}")
         else:
-            st.sidebar.warning("Please enter a prompt.")
+            st.warning("Please enter a prompt.")
 
     # Display chat history
-    st.subheader("Chat History")
+    st.subheader("🗂️ Chat History")
     for role, message in st.session_state.chat_history:
         if role == "user":
             st.markdown(f"👤 **You:** {message}")
