@@ -6,7 +6,7 @@ import pandas as pd
 import uuid
 
 # --- Constants and Setup ---
-GROQ_API_KEY = "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"
+GROQ_API_KEY ="GROQ_API_KEY"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 HEADERS = {
     "Authorization": f"Bearer {GROQ_API_KEY}",
