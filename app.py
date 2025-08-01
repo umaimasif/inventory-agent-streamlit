@@ -145,26 +145,29 @@ if page == "Inventory":
     with tabs[0]:
        st.header("➕ Add Item")
     
-       name = st.text_input("Item Name")
-       quantity = st.number_input("Quantity", min_value=1, step=1)
-       category = st.text_input("Category")
-       price = st.number_input("Price", min_value=0.0, step=0.1)
-       size = st.selectbox("Size", ["Small", "Medium", "Large", "XL", "XXL"])
-       brand = st.text_input("Brand Name")
-       color = st.text_input("Color")
-    
+       name = st.text_input("Item Name").strip()
+       quantity = st.number_input("Quantity", min_value=1, step=1).strip()
+       category = st.text_input("Category").strip()
+       price = st.number_input("Price", min_value=0.0, step=0.1).strip()
+       size = st.text_input("Size (optional)").strip()
+       st.caption("e.g., Small (for clothes) or 200ml (for shampoo/oil)")
+       brand = st.text_input("Brand Name").strip()
+       color = st.text_input("Color").strip()
        if st.button("Add Item"):
            item = {
             "name": name,
             "quantity": quantity,
             "category": category,
             "price": price,
-            "size": size,
+            "size": size if size else "N/A", 
             "brand": brand,
             "color": color
         }
+           if "inventory" not in st.session_state:
+              st.session_state.inventory = []
+
            st.session_state.inventory.append(item)
-           st.success(f"✅ Added {quantity} of {name} ({size}, {color}, {brand}) to inventory.")
+           st.success(f"✅ Added {quantity} of {item_name} ({size if size else 'N/A'}, {color}, {brand}) to inventory.")
 
     with tabs[1]:
          st.header("📄 View Inventory")
