@@ -167,7 +167,7 @@ if page == "Inventory":
               st.session_state.inventory = []
 
            st.session_state.inventory.append(item)
-           st.success(f"✅ Added {quantity} of {item_name} ({size if size else 'N/A'}, {color}, {brand}) to inventory.")
+           st.success(f"✅ Added {quantity} of {name} ({size if size else 'N/A'}, {color}, {brand}) to inventory.")
 
     with tabs[1]:
          st.header("📄 View Inventory")
