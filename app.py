@@ -146,9 +146,9 @@ if page == "Inventory":
        st.header("➕ Add Item")
     
        name = st.text_input("Item Name").strip()
-       quantity = st.number_input("Quantity", min_value=1, step=1).strip()
+       quantity = st.number_input("Quantity", min_value=1, step=1)
        category = st.text_input("Category").strip()
-       price = st.number_input("Price", min_value=0.0, step=0.1).strip()
+       price = st.number_input("Price", min_value=0.0, step=0.1)
        size = st.text_input("Size (optional)").strip()
        st.caption("e.g., Small (for clothes) or 200ml (for shampoo/oil)")
        brand = st.text_input("Brand Name").strip()
