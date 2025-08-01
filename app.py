@@ -183,7 +183,8 @@ if page == "Inventory":
         if st.button("Delete"):
             try:
                 removed = st.session_state.inventory.pop(delete_index - 1)
-                st.success(f"Removed {removed['item']}")
+                st.success(f"Removed {removed.get('name', 'Unknown item')}")
+
             except IndexError:
                 st.error("Invalid index.")
 
