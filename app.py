@@ -225,12 +225,12 @@ if page == "Inventory":
             else:
                 st.warning("Item not found in inventory.")
 
+    
     with tabs[5]:
         st.header("Save Inventory")
-        if st.button("Save"):
-            # Replace with actual save logic
-            st.success("Inventory saved.")
-
+        if "inventory" in st.session_state:
+            if st.button("Save Inventory"):
+                 save_inventory_and_download(st.session_state.inventory)
     with tabs[6]:
         st.header("Stop Agent")
         if st.button("Clear Session"):
