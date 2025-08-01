@@ -13,20 +13,36 @@ import io
 def delete_item(item_id):
     st.session_state.inventory = [item for item in st.session_state.inventory if item["id"] != item_id]
 
+def save_inventory():
+    df = pd.DataFrame(st.session_state.inventory)
+    df.to_csv("inventory.csv", index=False)
+    df.to_json("inventory.json", orient="records", indent=2)
+    st.success("Inventory saved as CSV and JSON.")
+import pandas as pd
+import streamlit as st
+import io
+
 def save_inventory_and_download(inventory):
     if not inventory:
         st.warning("No items to save.")
         return
+
     df = pd.DataFrame(inventory)
+
+    # Convert DataFrame to CSV in memory
     csv_buffer = io.StringIO()
     df.to_csv(csv_buffer, index=False)
-    csv_data = csv_buffer.getvalue()  # ✅ ADD THIS LINE
+    csv_data = csv_buffer.getvalue()
+
+    # Show download button
     st.download_button(
         label="📥 Download Inventory CSV",
         data=csv_data,
         file_name="inventory.csv",
         mime="text/csv"
     )
+
+
 
 
 def restock_item(item_id, quantity):
