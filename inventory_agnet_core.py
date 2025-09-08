@@ -31,7 +31,7 @@ Groq_key = userdata.get('Groq_key').strip()
 os.environ['GROQ_API_KEY'] = Groq_key  # Set environment variable
 
 # Define Groq model (e.g., llama3 or mixtral)
-MODEL = "groq/llama3-8b-8192"
+MODEL = "groq/llama-3.1-8b-instant"
 
 # Function to generate response using Groq
 def generate_response(messages: List[Dict]) -> str:
