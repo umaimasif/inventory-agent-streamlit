@@ -66,7 +66,7 @@ def place_order(order_items):
 def ask_assistant(prompt):
     try:
         result = litellm.completion(
-            model="groq/llama3-8b-8192",
+            model="groq/llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "You are a helpful inventory assistant."},
                 {"role": "user", "content": prompt}
@@ -266,3 +266,4 @@ elif page == "Agent":
             st.markdown(f"👤 **You:** {message}")
         else:
             st.markdown(f"🤖 **Assistant:** {message}")
+
